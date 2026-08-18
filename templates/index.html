@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emotion Detector</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <style>
+        body {
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .center-heading {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .card {
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+        }
+        .form-control {
+            border-radius: 5px;
+            border: 2px solid #e0e0e0;
+        }
+        .btn-secondary {
+            background-color: #667eea;
+            border: none;
+            border-radius: 5px;
+            padding: 10px 30px;
+            font-weight: bold;
+        }
+        .btn-secondary:hover {
+            background-color: #764ba2;
+        }
+        #system_response {
+            background-color: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" style="max-width: 600px;">
+        <div class="card">
+            <div class="card-body">
+                <h1 class="center-heading">🎭 Emotion Detection</h1>
+                <h2 class="center-heading" style="font-size: 18px; color: #666;">NLP Emotion Analyzer</h2>
+                
+                <div style="padding: 20px;">
+                    <label class="form-label" style="font-weight: bold;">Enter text to analyze:</label>
+                    <textarea class="form-control" id="textToAnalyze" rows="4" placeholder="Type something..."></textarea>
+                </div>
+
+                <div style="padding: 20px; text-align: center;">
+                    <button onclick="RunSentimentAnalysis()" class="btn btn-secondary">Analyze Emotion</button>
+                </div>
+
+                <div style="padding: 20px;">
+                    <label class="form-label" style="font-weight: bold;">Analysis Result:</label>
+                    <div id="system_response"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let RunSentimentAnalysis = () => {
+            const textToAnalyze = document.getElementById("textToAnalyze").value;
+            const resultDiv = document.getElementById("system_response");
+            
+            if (!textToAnalyze.trim()) {
+                resultDiv.innerHTML = '<p style="color: red;">Please enter some text!</p>';
+                resultDiv.style.display = 'block';
+                return;
+            }
+
+            resultDiv.innerHTML = '<p>Loading...</p>';
+            resultDiv.style.display = 'block';
+
+            let xhttp = new XMLHttpRequest();
+            xhttp.onreadystatechange = function() {
+                if (this.readyState == 4 && this.status == 200) {
+                    resultDiv.innerHTML = xhttp.responseText;
+                    resultDiv.style.display = 'block';
+                } else if (this.readyState == 4) {
+                    resultDiv.innerHTML = '<p style="color: red;">Error analyzing text. Please try again.</p>';
+                }
+            };
+            xhttp.open("GET", "emotionDetector?textToAnalyze=" + encodeURIComponent(textToAnalyze), true);
+            xhttp.send();
+        }
+
+        // Allow Enter key to submit
+        document.getElementById("textToAnalyze").addEventListener("keypress", function(e) {
+            if (e.key === "Enter" && e.ctrlKey) {
+                RunSentimentAnalysis();
+            }
+        });
+    </script>
+</body>
+</html>
