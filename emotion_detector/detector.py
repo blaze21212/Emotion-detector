@@ -1,11 +1,14 @@
-"""
-Emotion Detection Module
-Detects emotions from text using Watson NLP API with local fallback
-"""
+"""Emotion detection implementation using the Watson NLP Emotion API."""
+
+import json
+from typing import Dict, Optional
 
 import requests
-from typing import Dict, Optional, Union
+
 from .utils import fallback_emotion_detector
+
+
+EMOTION_KEYS = ('anger', 'disgust', 'fear', 'joy', 'sadness')
 
 
 class EmotionDetector:
@@ -26,7 +29,7 @@ class EmotionDetector:
         self.headers = {"grpc-metadata-mm-model-id": "emotion_aggregated-workflow_lang_en_stock"}
         self.timeout = timeout
     
-    def detect(self, text: str) -> Union[Dict, str]:
+    def detect(self, text: str) -> Dict:
         """
         Detect emotions in the given text.
         
@@ -34,20 +37,27 @@ class EmotionDetector:
             text: Text to analyze
             
         Returns:
-            Raw Watson API response text for valid input, or a fallback
-            dictionary if the request cannot be completed.
+            Dictionary containing anger, disgust, fear, joy, sadness, and
+            dominant_emotion.
         """
-        # Check for empty or blank input
         if not text or not text.strip():
             return self._empty_response()
-        
-        # Try Watson API first
+
         try:
-            return self._query_watson_api(text)
-        except Exception as e:
-            print(f"Watson API unavailable ({str(e)}), using fallback detector")
+            response_text = self._query_watson_api(text)
+            response_data = json.loads(response_text)
+            emotions = response_data['emotionPredictions'][0]['emotion']
+        except (
+            requests.exceptions.RequestException,
+            json.JSONDecodeError,
+            KeyError,
+            IndexError,
+            TypeError
+        ):
             return fallback_emotion_detector(text)
-    
+
+        return self._format_response(emotions)
+
     def _query_watson_api(self, text: str) -> str:
         """Query Watson NLP API for emotion detection."""
         payload = {"raw_document": {"text": text}}
@@ -58,12 +68,13 @@ class EmotionDetector:
             headers=self.headers,
             timeout=self.timeout
         )
-        
+
+        response.raise_for_status()
         return response.text
-    
+
     @staticmethod
     def _empty_response() -> Dict:
-        """Return empty response for empty input"""
+        """Return the required response format for empty input."""
         return {
             'anger': None,
             'disgust': None,
@@ -73,9 +84,25 @@ class EmotionDetector:
             'dominant_emotion': None
         }
 
+    @staticmethod
+    def _format_response(emotions: Dict) -> Dict:
+        """Extract scores and calculate the dominant emotion."""
+        scores = {
+            emotion: emotions.get(emotion, 0.0)
+            for emotion in EMOTION_KEYS
+        }
+        dominant_emotion = max(scores, key=scores.get)
+        scores['dominant_emotion'] = dominant_emotion
+        return scores
 
-# Module-level convenience function
-def analyze_emotion(text: str) -> Union[Dict, str]:
+
+def emotion_detector(text_to_analyse: str) -> Dict:
+    """Return formatted emotion scores for the supplied text."""
+    detector = EmotionDetector()
+    return detector.detect(text_to_analyse)
+
+
+def analyze_emotion(text: str) -> Dict:
     """
     Convenience function to analyze emotion in text.
     
@@ -83,8 +110,7 @@ def analyze_emotion(text: str) -> Union[Dict, str]:
         text: Text to analyze
         
     Returns:
-        Raw Watson API response text for valid input, or a fallback dictionary
-        if the request cannot be completed.
+        Dictionary with emotion scores and the dominant emotion.
         
     Example:
         >>> from emotion_detector import analyze_emotion
@@ -92,5 +118,4 @@ def analyze_emotion(text: str) -> Union[Dict, str]:
         >>> print(result['dominant_emotion'])
         'joy'
     """
-    detector = EmotionDetector()
-    return detector.detect(text)
+    return emotion_detector(text)
