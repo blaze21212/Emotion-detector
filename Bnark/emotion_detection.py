@@ -1,4 +1,5 @@
 import json
+
 import requests
 
 def fallback_emotion_detector(text_to_analyze):
@@ -40,53 +41,50 @@ def fallback_emotion_detector(text_to_analyze):
         'dominant_emotion': dominant
     }
 
-def emotion_detector(text_to_analyze):
+def emotion_detector(text_to_analyse):
     """
-    Sends text to the Watson NLP Emotion Predict API and returns
-    individual emotion scores alongside the dominant emotion.
-    Falls back to local detection if API is unavailable.
+    Sends text to the Watson NLP Emotion Predict API and returns the
+    raw response text.
     """
-    # Check for empty or blank input
-    if not text_to_analyze or not text_to_analyze.strip():
-        return {
-            'anger': None,
-            'disgust': None,
-            'fear': None,
-            'joy': None,
-            'sadness': None,
-            'dominant_emotion': None
-        }
-
     # Watson NLP Emotion Predict Endpoint
     url = 'https://sn-watson-emotion.labs.skills.network/v1/watson.runtime.nlp.v1/NlpService/EmotionPredict'
     headers = {"grpc-metadata-mm-model-id": "emotion_aggregated-workflow_lang_en_stock"}
-    payload = {"raw_document": {"text": text_to_analyze}}
+    payload = {"raw_document": {"text": text_to_analyse}}
+
+    response = requests.post(url, json=payload, headers=headers, timeout=5)
+    return response.text
+
+
+def empty_emotion_response():
+    """Returns the invalid-text response expected by the Flask app."""
+    return {
+        'anger': None,
+        'disgust': None,
+        'fear': None,
+        'joy': None,
+        'sadness': None,
+        'dominant_emotion': None
+    }
+
+
+def format_emotion_response(text_to_analyse):
+    """Formats the raw Watson response into emotion scores."""
+    if not text_to_analyse or not text_to_analyse.strip():
+        return empty_emotion_response()
 
     try:
-        response = requests.post(url, json=payload, headers=headers, timeout=5)
-        
-        # Handle non-200 responses
-        if response.status_code == 400 or response.status_code == 500:
-            # Use fallback detector
-            return fallback_emotion_detector(text_to_analyze)
-
-        formatted_response = json.loads(response.text)
-        
-        # Extract emotions dictionary
+        response_text = emotion_detector(text_to_analyse)
+        formatted_response = json.loads(response_text)
         emotions = formatted_response['emotionPredictions'][0]['emotion']
-        
-        # Determine dominant emotion
-        dominant_emotion = max(emotions, key=emotions.get)
-        
-        return {
-            'anger': emotions.get('anger', 0.0),
-            'disgust': emotions.get('disgust', 0.0),
-            'fear': emotions.get('fear', 0.0),
-            'joy': emotions.get('joy', 0.0),
-            'sadness': emotions.get('sadness', 0.0),
-            'dominant_emotion': dominant_emotion
-        }
+    except (requests.exceptions.RequestException, json.JSONDecodeError, KeyError, IndexError, TypeError):
+        return fallback_emotion_detector(text_to_analyse)
 
-    except (requests.exceptions.RequestException, json.JSONDecodeError, KeyError, IndexError):
-        # If API fails for any reason, use fallback
-        return fallback_emotion_detector(text_to_analyze)
+    dominant_emotion = max(emotions, key=emotions.get)
+    return {
+        'anger': emotions.get('anger', 0.0),
+        'disgust': emotions.get('disgust', 0.0),
+        'fear': emotions.get('fear', 0.0),
+        'joy': emotions.get('joy', 0.0),
+        'sadness': emotions.get('sadness', 0.0),
+        'dominant_emotion': dominant_emotion
+    }

@@ -1,5 +1,7 @@
+"""Flask web application for the emotion detector."""
+
 from flask import Flask, render_template, request
-from emotion_detector import analyze_emotion
+from emotion_detection import format_emotion_response
 
 app = Flask("Emotion Detector")
 
@@ -12,7 +14,7 @@ def render_index_page():
 def emotion_analyzer():
     """Analyzes text sent via query params and returns formatted text."""
     text_to_analyze = request.args.get('textToAnalyze')
-    response = analyze_emotion(text_to_analyze)
+    response = format_emotion_response(text_to_analyze)
 
     if response['dominant_emotion'] is None:
         return "Invalid text! Please try again!"

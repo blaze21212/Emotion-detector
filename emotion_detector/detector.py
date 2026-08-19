@@ -3,9 +3,8 @@ Emotion Detection Module
 Detects emotions from text using Watson NLP API with local fallback
 """
 
-import json
 import requests
-from typing import Dict, Optional
+from typing import Dict, Optional, Union
 from .utils import fallback_emotion_detector
 
 
@@ -27,7 +26,7 @@ class EmotionDetector:
         self.headers = {"grpc-metadata-mm-model-id": "emotion_aggregated-workflow_lang_en_stock"}
         self.timeout = timeout
     
-    def detect(self, text: str) -> Dict:
+    def detect(self, text: str) -> Union[Dict, str]:
         """
         Detect emotions in the given text.
         
@@ -35,15 +34,8 @@ class EmotionDetector:
             text: Text to analyze
             
         Returns:
-            Dictionary with emotion scores and dominant emotion:
-            {
-                'anger': float,
-                'disgust': float,
-                'fear': float,
-                'joy': float,
-                'sadness': float,
-                'dominant_emotion': str
-            }
+            Raw Watson API response text for valid input, or a fallback
+            dictionary if the request cannot be completed.
         """
         # Check for empty or blank input
         if not text or not text.strip():
@@ -56,8 +48,8 @@ class EmotionDetector:
             print(f"Watson API unavailable ({str(e)}), using fallback detector")
             return fallback_emotion_detector(text)
     
-    def _query_watson_api(self, text: str) -> Dict:
-        """Query Watson NLP API for emotion detection"""
+    def _query_watson_api(self, text: str) -> str:
+        """Query Watson NLP API for emotion detection."""
         payload = {"raw_document": {"text": text}}
         
         response = requests.post(
@@ -67,25 +59,7 @@ class EmotionDetector:
             timeout=self.timeout
         )
         
-        # Handle error responses
-        if response.status_code in [400, 500]:
-            return fallback_emotion_detector(text)
-        
-        # Parse response
-        formatted_response = json.loads(response.text)
-        emotions = formatted_response['emotionPredictions'][0]['emotion']
-        
-        # Find dominant emotion
-        dominant_emotion = max(emotions, key=emotions.get)
-        
-        return {
-            'anger': emotions.get('anger', 0.0),
-            'disgust': emotions.get('disgust', 0.0),
-            'fear': emotions.get('fear', 0.0),
-            'joy': emotions.get('joy', 0.0),
-            'sadness': emotions.get('sadness', 0.0),
-            'dominant_emotion': dominant_emotion
-        }
+        return response.text
     
     @staticmethod
     def _empty_response() -> Dict:
@@ -101,7 +75,7 @@ class EmotionDetector:
 
 
 # Module-level convenience function
-def analyze_emotion(text: str) -> Dict:
+def analyze_emotion(text: str) -> Union[Dict, str]:
     """
     Convenience function to analyze emotion in text.
     
@@ -109,7 +83,8 @@ def analyze_emotion(text: str) -> Dict:
         text: Text to analyze
         
     Returns:
-        Dictionary with emotion scores and dominant emotion
+        Raw Watson API response text for valid input, or a fallback dictionary
+        if the request cannot be completed.
         
     Example:
         >>> from emotion_detector import analyze_emotion
